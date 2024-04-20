@@ -1,0 +1,86 @@
+name: Deploy to staging environment
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+
+      - name: Install dependencies
+        uses: bahmutov/npm-install@v1
+
+      - name: Install clasp
+        id: install-clasp
+        run: sudo npm install @google/clasp@2.4.1 -g
+
+      ####
+      ## These steps are for making sure clasp is logged in
+      ####
+
+      # Writes the GH secret value of CLASPRC_JSON from GitHub Secrets into the .clasprc.json file.
+      # This file is required by the clasp tool to authenticate the user for operations with Google Apps Script projects.
+      - name: Write CLASPRC_JSON secret to .clasprc.json file
+        id: write-clasprc
+        run: echo "$CLASPRC_JSON_SECRET" >> ~/.clasprc.json
+        env:
+          CLASPRC_JSON_SECRET: ${{ secrets.CLASPRC_JSON }}
+
+      # Check if the user is logged in to clasp. This does so by referencing
+      # the .clasprc.json file that we just wrote in the last step.
+      - name: Check clasp login status
+        id: clasp_login
+        run: clasp login --status
+
+      # Captures and stores the current contents of the .clasprc.json file into an environment variable CLASPRC_JSON_FILE.
+      # This ensures that the sensitive contents are masked in logs and are accessible for subsequent steps in a secure manner.
+      - name: Save current .clasprc.json contents to CLASPRC_JSON_FILE environment variable
+        id: save-clasprc
+        run: |
+          echo ::add-mask::$(tr -d '\n\r' < ~/.clasprc.json)
+          echo "CLASPRC_JSON_FILE=$(tr -d '\n\r' < ~/.clasprc.json)" >> $GITHUB_ENV
+
+      # Updates the repository's CLASPRC_JSON secret only if the current .clasprc.json contents have changed.
+      # Utilizes a custom GitHub Action (hmanzur/actions-set-secret) to update the repository secret using a personal access token.
+      # This step is important for maintaining the latest credentials securely as repository secrets, allowing seamless future workflows.
+      - name: Save CLASPRC_JSON_FILE environment variable to CLASPRC_JSON repo secret
+        id: set-clasprc-secret
+        if: ${{ env.CLASPRC_JSON_FILE != env.CLASPRC_JSON_SECRET  }}
+        uses: hmanzur/actions-set-secret@v2.0.0
+        env:
+          CLASPRC_JSON_SECRET: ${{ secrets.CLASPRC_JSON }}
+        with:
+          name: "CLASPRC_JSON"
+          value: ${{ env.CLASPRC_JSON_FILE }}
+          repository: ${{ github.repository }}
+          token: ${{ secrets.REPO_ACCESS_TOKEN }}
+
+      ####
+      ## All of the steps below are for deploying the script to the staging environment
+      ####
+
+      # Set the scriptId in the .clasp.json file to the STAGING_SCRIPT_ID secret
+      - name: Set scriptId in .clasp.json file
+        id: set-script-id
+        run: npx clasp-env --folder . --scriptId '${{ env.STAGING_SCRIPT_ID }}'
+
+      # Push the script to the staging environment
+      - name: Push script to scripts.google.com
+        id: clasp-push
+        run: clasp push -f
+
+      # - name: Deploy Script
+      #   id: clasp-deploy
+      #   if: github.ref == 'refs/heads/test'
+      #   run: clasp deploy -i "${{ secrets.TEST_DEPLOYMENT_ID }}" -d ${{github.run_number}}
+      #   env:
+      #     TEST_SCRIPT_ID: ${{ secrets.TEST_SCRIPT_ID }}
