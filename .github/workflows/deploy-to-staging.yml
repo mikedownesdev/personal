@@ -68,10 +68,10 @@ jobs:
       ## All of the steps below are for deploying the script to the staging environment
       ####
 
-      # Set the scriptId in the .clasp.json file to the STAGING_SCRIPT_ID secret
+      # Set the scriptId in the .clasp.json file to the STAGING_SCRIPT_ID repository variable
       - name: Set scriptId in .clasp.json file
         id: set-script-id
-        run: npx clasp-env --folder . --scriptId '${{ env.STAGING_SCRIPT_ID }}'
+        run: npx clasp-env --folder . --scriptId '${{ vars.STAGING_SCRIPT_ID}}'
 
       # Push the script to the staging environment
       - name: Push script to scripts.google.com
