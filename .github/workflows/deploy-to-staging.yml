@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 jobs:
-  build_and_deploy:
+  deploy_to_staging:
     runs-on: ubuntu-latest
 
     steps:
@@ -77,10 +77,3 @@ jobs:
       - name: Push script to scripts.google.com
         id: clasp-push
         run: clasp push -f
-
-      # - name: Deploy Script
-      #   id: clasp-deploy
-      #   if: github.ref == 'refs/heads/test'
-      #   run: clasp deploy -i "${{ secrets.TEST_DEPLOYMENT_ID }}" -d ${{github.run_number}}
-      #   env:
-      #     TEST_SCRIPT_ID: ${{ secrets.TEST_SCRIPT_ID }}
