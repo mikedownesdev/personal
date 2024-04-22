@@ -5,3 +5,7 @@ function myFunction() {
 function myNewFeature() {
   console.log("testing new feature");
 }
+
+function featureForJohn() {
+  console.log("feature for John!!!");
+}
